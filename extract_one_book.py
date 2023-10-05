@@ -3,6 +3,7 @@
 import requests
 from bs4 import BeautifulSoup
 import csv
+import time
 
 #url choisie
 url = "http://books.toscrape.com/catalogue/the-picture-of-dorian-gray_270/index.html"
@@ -27,13 +28,16 @@ review_rating = soup.find("p", class_='star-rating').get('class').pop() + " star
 image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../..", "http://books.toscrape.com")
 
 
-#création d'un fichier CSV regroupant les infos du livre
+
+#créer un nom de fichier unique
+fichier = title + "_" + time.strftime('%Y_%m_%d_%H_%M_%S') + ".csv"
+
+#création d'un fichier CSV regroupant les informations du livre
 infos = [url, upc, title, price_excluding_tax, price_including_tax, number_available, product_description, category, review_rating, image_url]
 en_tete = ["url", "upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "image url"]
 
-with open('book.csv', 'w', encoding="utf-8-sig") as file:
+
+with open(fichier, 'w', encoding="utf-8-sig") as file:
     writer = csv.writer(file, delimiter= ",")
     writer.writerow(en_tete)
     writer.writerow(infos)
-
-
