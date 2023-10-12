@@ -28,12 +28,12 @@ def get_book_info(book):
 
     return [title, book_url, rating, price, availability, image_url]
 
+
 if __name__ == "__main__":
     filename = f"fantasy_{time.strftime('%Y_%m_%d_%H_%M_%S')}.csv"
 
     with open(filename, "a", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         writer.writerow(["title", "url_book", "rating", "price", "availability", "image_url"])
-
         for page_number in range(1, 5):
             scrape_books(writer, page_number)

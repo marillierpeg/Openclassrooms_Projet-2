@@ -23,7 +23,6 @@ number_available = soup.find(string = "Availability").find_next("td").text
 product_description = soup.find(id = "product_description").find_next("p").text.replace("...more", "")
 book_category = soup.find("ul", attrs = {"class": "breadcrumb"}).find_all("a")[2].text
 review_rating = soup.find("p", class_= "star-rating").get("class").pop() + " stars on five"
-print(review_rating)
 image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../..", "http://books.toscrape.com")
 
 price_excluding_tax = soup.find(string ="Price (excl. tax)").findNext("td").text
