@@ -17,4 +17,3 @@ if __name__ == "__main__":
         writer = csv.writer(file, delimiter= ",")
         writer.writerow(en_tete)
         writer.writerow(fs.scrape_one_book(soup, url))
-    

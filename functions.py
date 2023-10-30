@@ -2,16 +2,19 @@ import requests
 from bs4 import BeautifulSoup
 import csv
 import time
+import urllib.request
 
 
 #variables et constantes
-root_url = "http://books.toscrape.com/"
+root_url = "https://books.toscrape.com/"
+category_url = "https://books.toscrape.com/catalogue/"
 catalogue_url = "/index.html"
-books_url = "/catalogue/category/books/{category_name}/{page}.html"
-book_detail_url = "/catalogue/{book_id}/index.html"
+#category_url = "catalogue/category/books/{category_name}.html"
+#books_url = "catalogue/category/books/{category_name}/{page}.html"
+#book_detail_url = "catalogue/{book_id}/index.html"
 list_categories = []
 list_url_categories = []
-en_tete = ["url", "upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "image url"]
+en_tete = ["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"]
 
 #parse la page si elle répond
 def jolie_soupe(url):
@@ -51,7 +54,7 @@ def url_books(url_category):
     if not next_page:
         url_book = soup.find(class_ = "row").findAllNext("h3")
         for link in url_book:
-            links = url_category[:27] + link.find("a").get("href").replace("../../..", "")
+            links = category_url + link.find("a").get("href").replace("../../../", "")
             list_url_books.append(links)
     else:
         page_number = soup.find('li', class_='current').text.replace("\n", "").replace("  ","").split().pop(3)
@@ -62,23 +65,19 @@ def url_books(url_category):
             soup = jolie_soupe(new_url)
             url_book = soup.find(class_ = "row").findAllNext("h3")
             for link in url_book:
-                links = new_url[:26] + link.find("a").get("href").replace("../../..", "catalogue")
+                links = category_url + link.find("a").get("href").replace("../../../", "")
                 list_url_books.append(links)
     return list_url_books
 
 
 #récupère toutes les information d'un livre
 def scrape_one_book(soup, url_book):
-    upc_element = soup.find(string='UPC')
-    if upc_element:
-        upc = upc_element.findNext('td').text
-    else:
-        upc = "Not available"    
+    upc= soup.find(string='UPC').findNext('td').text  
     title = soup.find("h1").text
     number_available = soup.find(string = "Availability").find_next("td").text.removeprefix('In stock (').removesuffix(' available)')
-    product_description = soup.find(id = "product_description").find_next("p").text.replace("...more", "")
+    product_description = soup.find(id = "product_description")
     if product_description is not None:
-        product_description = product_description
+        product_description = product_description.find_next("p").text.replace("...more", "")
     else:
         product_description = "pas de description"
     book_category = soup.find(class_ = "breadcrumb").findAll("a")[-1].text
@@ -88,7 +87,7 @@ def scrape_one_book(soup, url_book):
     price_including_tax = soup.find(string ="Price (incl. tax)").findNext("td").text
     #convertir les prix en float pour éventuellement les utiliser en tant que nombres
     price_excluding_tax = float(price_excluding_tax[1:])
-    price_including_tax = float(price_including_tax[1:]) 
+    price_including_tax = float(price_including_tax[1:])
     infos_book = [upc,title, price_excluding_tax,price_including_tax, number_available, product_description, book_category, review_rating, url_book, image_url]
     return infos_book
 
@@ -102,8 +101,17 @@ def scrape_books(url_category):
         writer.writerow(["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"])
         soup = jolie_soupe(url_category)
         list_url_books = url_books(url_category)
+        print(f"url livres: {list_url_books}")
         for url_book in list_url_books:
             soup = jolie_soupe(url_book)
             writer.writerow(scrape_one_book(soup, url_book))
+
+#télécharge l'image d'un livre et la nomme avec le titre du livre (10 premiers caractères)
+def download_image(soup, url_book):
+    soup = jolie_soupe(url_book)
+    book_name = soup.find("h1").text[:10]
+    image_name = book_name + ".jpg"
+    image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../..", root_url)
+    urllib.request.urlretrieve(image_url,image_name)
 
 
