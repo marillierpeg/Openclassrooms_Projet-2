@@ -9,7 +9,6 @@ import os
 #variables et constantes
 root_url = "https://books.toscrape.com/"
 category_url = "https://books.toscrape.com/catalogue/"
-catalogue_url = "/index.html"
 en_tete = ["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"]
 
 #parse une URL si celle-ci est correcte et accessible
@@ -101,7 +100,7 @@ def scrape_books(url_category):
         os.makedirs(f"{path}/books_to_scrape/{category_name}")
     with open(f"{path}/books_to_scrape/{category_name}/{filename}", "a", encoding="utf-8-sig") as file:
         writer = csv.writer(file)
-        writer.writerow(["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"])
+        writer.writerow(en_tete)
         soup = jolie_soupe(url_category)
         list_url_books = url_books(url_category)
         for url_book in list_url_books:
@@ -132,11 +131,11 @@ def download_image(url_book):
         f.write(load_image.content)
         os.chdir(f'{path}/')
 
+#créé fichier csv et arborescence dossiers
 def make_csv(url_book):
     soup = jolie_soupe(url_book)
     book_name = soup.find("h1").text[:10].replace(":","").replace("/","").replace("?","").replace('"',"").replace("-","").replace(" ","")
     filename = f"{book_name}_{time.strftime('%Y_%m_%d_%H_%M_%S')}.csv"
-    en_tete = ["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"]
     path = os. getcwd() #renvoie le dossier courant comme chemin
     if not os.path.exists(f"{path}/{book_name}"):
             os.makedirs(f"{path}/{book_name}")#créé le dossier si il n'existe pas
@@ -182,7 +181,7 @@ def category_choice(root_url):
 
     return url_to_scrape
 
-
+#extrait les données de tous les livres de toutes les catégories
 def scrape_all(soup):
     list_url_categories = get_url_categories(soup)
     print("Début de l'extraction de données")
