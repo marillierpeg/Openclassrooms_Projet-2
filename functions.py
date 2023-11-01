@@ -1,28 +1,26 @@
+#import des modules/packages nécessaires
 import requests
 from bs4 import BeautifulSoup
 import csv
 import time
-import urllib.request
+import os
 
 
 #variables et constantes
 root_url = "https://books.toscrape.com/"
 category_url = "https://books.toscrape.com/catalogue/"
 catalogue_url = "/index.html"
-#category_url = "catalogue/category/books/{category_name}.html"
-#books_url = "catalogue/category/books/{category_name}/{page}.html"
-#book_detail_url = "catalogue/{book_id}/index.html"
-list_categories = []
-list_url_categories = []
 en_tete = ["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"]
 
-#parse la page si elle répond
+#parse une URL si celle-ci est correcte et accessible
 def jolie_soupe(url):
     try:
-        page = requests.get(url)    
-    except IOError:
-        print("Invalid URL")
-    page = requests.get(url)    
+        page = requests.get(url)
+        page.raise_for_status()
+    except requests.exceptions.HTTPError:
+        print ("L'URL saisie n'existe pas, merci de relancer le programme avec une URL valide")
+        time.sleep(5)
+        exit()  
     soup = BeautifulSoup(page.content, "html.parser")
     return soup
 
@@ -45,7 +43,7 @@ def get_categories(soup):
     return list_categories
 
 
-#créé une liste des url de chaque livre pour une catégorie
+#créé une liste des url de chaque livre pour une catégorie quel que soit le nombre de page de la catégorie
 def url_books(url_category):
     soup = jolie_soupe(url_category)
     next_page = soup.find("li", class_ = "next")
@@ -82,7 +80,7 @@ def scrape_one_book(soup, url_book):
         product_description = "pas de description"
     book_category = soup.find(class_ = "breadcrumb").findAll("a")[-1].text
     review_rating = soup.find("p", class_= "star-rating").get("class").pop() + " stars on five"
-    image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../..", "http://books.toscrape.com")
+    image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../../", root_url)
     price_excluding_tax = soup.find(string ="Price (excl. tax)").findNext("td").text
     price_including_tax = soup.find(string ="Price (incl. tax)").findNext("td").text
     #convertir les prix en float pour éventuellement les utiliser en tant que nombres
@@ -92,26 +90,104 @@ def scrape_one_book(soup, url_book):
     return infos_book
 
 
-#récupère les infos de chaque livre d'une catégorie et les stock dans un fichier CSV
+#récupère les infos de chaque livre d'une catégorie, les stocke dans un fichier CSV
+#télécharge l'image associée à chaque livre
+#créé une arborescence de dossiers
 def scrape_books(url_category):
     category_name = url_category.split("/").pop(6).split("_").pop(0)
     filename = f"{category_name}_{time.strftime('%Y_%m_%d_%H_%M_%S')}.csv"
-    with open(filename, "a", encoding="utf-8-sig") as file:
+    path = os. getcwd() #renvoie le dossier courant comme chemin
+    if not os.path.exists(f"{path}/books_to_scrape/{category_name}"):
+        os.makedirs(f"{path}/books_to_scrape/{category_name}")
+    with open(f"{path}/books_to_scrape/{category_name}/{filename}", "a", encoding="utf-8-sig") as file:
         writer = csv.writer(file)
         writer.writerow(["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"])
         soup = jolie_soupe(url_category)
         list_url_books = url_books(url_category)
-        print(f"url livres: {list_url_books}")
         for url_book in list_url_books:
             soup = jolie_soupe(url_book)
             writer.writerow(scrape_one_book(soup, url_book))
+            book_name = soup.find("h1").text[:10].replace(":","").replace("/","").replace("?","").replace('"',"")
+            image_name = book_name + ".jpg"
+            image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../../", root_url)
+            load_image = requests.get(image_url)
+            path = os. getcwd() #renvoie le dossier courant comme chemin
+            if not os.path.exists(f"{path}/books_to_scrape/{category_name}/images"):
+                    os.makedirs(f"{path}/books_to_scrape/{category_name}/images")#créé le dossier si il n'existe pas
+            with open(f"{path}/books_to_scrape/{category_name}/images/{image_name}", "wb") as f:
+                f.write(load_image.content)
+                os.chdir(f'{path}/')
 
 #télécharge l'image d'un livre et la nomme avec le titre du livre (10 premiers caractères)
-def download_image(soup, url_book):
+def download_image(url_book):
     soup = jolie_soupe(url_book)
-    book_name = soup.find("h1").text[:10]
+    book_name = soup.find("h1").text[:10].replace(":","").replace("/","").replace("?","").replace('"',"").replace(" ","")
     image_name = book_name + ".jpg"
-    image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../..", root_url)
-    urllib.request.urlretrieve(image_url,image_name)
+    image_url = soup.find(class_ = "item active").find_next("img").get("src").replace("../../", root_url)
+    load_image = requests.get(image_url)
+    path = os. getcwd() #renvoie le dossier courant comme chemin
+    if not os.path.exists(f"{path}/{book_name}"):
+            os.makedirs(f"{path}/{book_name}")#créé le dossier si il n'existe pas
+    with open(f"{path}/{book_name}/{image_name}", "wb") as f:
+        f.write(load_image.content)
+        os.chdir(f'{path}/')
 
+def make_csv(url_book):
+    soup = jolie_soupe(url_book)
+    book_name = soup.find("h1").text[:10].replace(":","").replace("/","").replace("?","").replace('"',"").replace("-","").replace(" ","")
+    filename = f"{book_name}_{time.strftime('%Y_%m_%d_%H_%M_%S')}.csv"
+    en_tete = ["upc", "title", "price excluding_tax", "price including tax", "number available", "product description", "category", "review rating", "url", "image url"]
+    path = os. getcwd() #renvoie le dossier courant comme chemin
+    if not os.path.exists(f"{path}/{book_name}"):
+            os.makedirs(f"{path}/{book_name}")#créé le dossier si il n'existe pas
+    with open(f"{path}/{book_name}/{filename}", "w", encoding="utf-8-sig",) as file:
+        writer = csv.writer(file, delimiter= ",")
+        writer.writerow(en_tete)
+        writer.writerow(scrape_one_book(soup, url_book))
+
+
+
+#demande à l'utilisateur de choisir parmi la liste de catégories, celle dont il souhaite extraire les données
+def category_choice(root_url):
+    dict_cat = {}
+    soup = jolie_soupe(root_url)
+
+    list_url_cat = get_url_categories(soup)
+    for url in list_url_cat:
+        category_name = url.split("/").pop(6).split("_").pop(0)
+        dict_cat[category_name] = url
+    categories = list(dict_cat.keys())
+
+    try:
+        while True:
+            for i, categorie in enumerate(categories, start=1):
+                print(f"{i}.{categorie}")
+            choice = input("Merci d'entrer le numéro de la catégorie que vous souhaitez extraire : ")
+
+            user_choice = int(choice) - 1
+            if 1 <= user_choice <= len(categories):
+                break
+            else:
+                print("numéro invalide")
+    except ValueError:
+        print("Veuillez entrer un numéro valide")
+    except requests.exceptions.HTTPError:
+        print("Le site Web est en panne ou le HTML est modifié.")
+
+    category_chosen = categories[user_choice]
+    print(f"vous avez choisi la catégorie :  {category_chosen}")
+    url_category = list(dict_cat.values())
+    url_to_scrape = url_category[user_choice]
+    print("début de l'extraction")
+
+    return url_to_scrape
+
+
+def scrape_all(soup):
+    list_url_categories = get_url_categories(soup)
+    print("Début de l'extraction de données")
+    for url_category in list_url_categories:
+        category_name = url_category.split("/").pop(6).split("_").pop(0)
+        print(f"Extraction en cours de la catégorie {category_name} ({list_url_categories.index(url_category)+1}/{len(list_url_categories)})")
+        scrape_books(url_category)
 
