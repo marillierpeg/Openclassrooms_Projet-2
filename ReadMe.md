@@ -67,3 +67,5 @@ Rendez-vous sur le site [books to scrape](https://books.toscrape.com/) et copier
    ```
    python main.py
    ```
+4. Exemple de message de sortie 
+   ![Alt text](<Capture d'écran 2023-10-31 100800.png>)
